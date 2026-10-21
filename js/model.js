@@ -123,6 +123,36 @@
     return { kind: 'excess', text: sys.mode === 'acid' ? 'Excess strong base' : 'Excess strong acid' };
   }
 
+  /**
+   * The volume (mL, from 0 to Vmax) at which the curve reaches a given pH, or null if it does not in that
+   * range. The pH rises steadily as an acid is titrated and falls for a base, so a bisection finds it.
+   */
+  function volumeAtPH(sys, p, pH, Vmax) {
+    var sign = sys.mode === 'acid' ? 1 : -1, lo = 0, hi = Vmax, i, mid;
+    function f(V) { return sign * (state(sys, p, V).pH - pH); }
+    if (f(lo) > 0 || f(hi) < 0) return null;
+    for (i = 0; i < 50; i++) {
+      mid = (lo + hi) / 2;
+      if (f(mid) > 0) hi = mid; else lo = mid;
+    }
+    return (lo + hi) / 2;
+  }
+
+  /**
+   * One entry per step for the curve's guides: the equivalence volume Vk, the half-equivalence volume Vh
+   * and the exact pH there, the step's pKa (14 − pKb for a base), and the volume at which the curve
+   * really reaches pH = pKa. The two agree only where the half-equivalence shortcut holds.
+   */
+  function steps(sys, p, Vmax) {
+    var V1 = eqVolume1(p), n = sys.n, out = [], k;
+    if (!(V1 > 0)) return out;
+    for (k = 1; k <= n; k++) {
+      var pK = sys.mode === 'acid' ? sys.pKa[k - 1] : sys.pKa[n - k], Vh = (k - 0.5) * V1;
+      out.push({ k: k, Vk: k * V1, Vh: Vh, pHh: state(sys, p, Vh).pH, pK: pK, Vx: volumeAtPH(sys, p, pK, Vmax) });
+    }
+    return out;
+  }
+
   /** The curve from 0 to Vmax mL, densified around every equivalence point. */
   function curve(sys, p, Vmax) {
     var V1 = eqVolume1(p), pts = [], i, k, lo, hi;
@@ -168,7 +198,7 @@
   root.Model = {
     KW: KW, PKW: PKW, SUB: SUB,
     alphas: alphas, solveH: solveH, makeSystem: makeSystem, speciesList: speciesList,
-    eqVolume1: eqVolume1, state: state, region: region, curve: curve,
+    eqVolume1: eqVolume1, state: state, region: region, curve: curve, volumeAtPH: volumeAtPH, steps: steps,
     PRESETS: PRESETS, ACTIVITIES: ACTIVITIES
   };
 })(window);

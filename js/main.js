@@ -1,5 +1,6 @@
-/* Titration Curve Explorer: wiring. Reads the controls, runs the model, and writes the readouts,
- * the status line, both visuals and both tables. Exposes window.app for console checks.
+/* Titration Curve Explorer: wiring. Reads the controls, runs the model, and writes the status line,
+ * both visuals, the readouts, both tables and the results page's summary line. Exposes window.app for
+ * console checks.
  */
 (function (root) {
   'use strict';
@@ -13,7 +14,7 @@
     mode: 'acid', n: 1, scale: 'linear', showIons: false,
     Ca: 0.1, Va: 25, Ct: 0.1, Vt: 12.5, pK: [4.76, 7.20, 12.35]
   };
-  var sys = null, st = null, els = {}, fields = {}, lastStatus = '';
+  var sys = null, st = null, els = {}, fields = {}, lastStatus = '', lastNow = '';
 
   // --- species names as HTML (sub and sup elements, never innerHTML) -----------------
 
@@ -59,7 +60,9 @@
     list.forEach(function (row) {
       var o = document.createElement('option');
       o.value = row.slice(1).join(',');
-      o.textContent = row[0] + ' (' + row.slice(1).join(', ') + ')';
+      // Names only: the pK boxes beside the menu show the values, and the toolbar stays on one row.
+      o.dataset.name = row[0];
+      o.textContent = row[0];
       if (row[0] === selectName) o.selected = true;
       sel.appendChild(o);
     });
@@ -88,28 +91,39 @@
     $('sites-sub').textContent = acid
       ? ['', 'One acidic proton (HA)', 'Two acidic protons (H₂A)', 'Three acidic protons (H₃A)'][ui.n]
       : ['', 'Accepts one proton (B → BH⁺)', 'Accepts two protons (B → BH₂²⁺)', 'Accepts three protons (B → BH₃³⁺)'][ui.n];
-    $('titrand-title').textContent = acid ? 'Titrand: Weak Acid' : 'Titrand: Weak Base';
-    $('titrant-title').textContent = acid ? 'Titrant: Strong Base' : 'Titrant: Strong Acid';
+    $('titrand-title').textContent = acid ? 'Titrand: weak acid' : 'Titrand: weak base';
+    $('titrant-title').textContent = acid ? 'Titrant: strong base' : 'Titrant: strong acid';
     for (i = 0; i < 3; i++) {
-      var ctl = $('pk' + (i + 1) + '-control');
-      ctl.hidden = i >= ui.n;
-      var lab = $('pk' + (i + 1) + '-label');
-      lab.textContent = '';
-      lab.appendChild(document.createTextNode('p'));
-      var K = document.createElement('i');
-      K.textContent = 'K';
-      lab.appendChild(K);
-      var sub = document.createElement('sub');
-      sub.textContent = (acid ? 'a' : 'b') + (ui.n > 1 ? String(i + 1) : '');
-      lab.appendChild(sub);
-      $('pk' + (i + 1) + '-num').setAttribute('aria-label', 'p K ' + (acid ? 'a' : 'b') + (ui.n > 1 ? ' ' + (i + 1) : ''));
-      $('pk' + (i + 1) + '-sub').textContent = acid
-        ? (ui.n > 1 ? 'Step ' + (i + 1) + ' of the acid; values should increase from step to step' : 'Lower values mean a stronger acid; −2 to 16')
-        : (ui.n > 1 ? 'Protonation ' + (i + 1) + ' of the base; values should increase from step to step' : 'Lower values mean a stronger base; −2 to 16');
+      // A step the titrand does not have stays in place, switched off, so the toolbar keeps its size.
+      var off = i >= ui.n, why = off ? 'Used with ' + (i === 1 ? 'two or three' : 'three') + ' proton sites' : '';
+      [$('pk' + (i + 1) + '-num'), $('pk' + (i + 1))].forEach(function (el) {
+        el.disabled = off;
+        if (off) el.title = why; else el.removeAttribute('title');
+      });
+      // pKa for a single site; pKa1, pKa2, pKa3 once there is more than one (or the step is switched off).
+      var name = (acid ? 'a' : 'b') + (ui.n > 1 || i > 0 ? String(i + 1) : '');
+      setPK($('pk' + (i + 1) + '-label'), name);
+      setPK($('pk' + (i + 1) + '-num-label'), name);
+      $('pk' + (i + 1) + '-sub').textContent = off
+        ? why
+        : acid
+          ? (ui.n > 1 ? 'Step ' + (i + 1) + ' of the acid; values should increase from step to step' : 'Lower values mean a stronger acid; −2 to 16')
+          : (ui.n > 1 ? 'Protonation ' + (i + 1) + ' of the base; values should increase from step to step' : 'Lower values mean a stronger base; −2 to 16');
     }
     $('vt-label').textContent = acid ? 'Strong base added' : 'Strong acid added';
     $('vt-num').setAttribute('aria-label', (acid ? 'Strong base added' : 'Strong acid added') + ' in millilitres');
-    $('ions-check-text').textContent = 'Show free H₃O⁺ and OH⁻';
+  }
+
+  /** "pKa1" as p, an italic K and a subscript; append keeps what the element already holds. */
+  function setPK(el, sub, append) {
+    if (!append) el.textContent = '';
+    el.appendChild(document.createTextNode('p'));
+    var K = document.createElement('i');
+    K.textContent = 'K';
+    el.appendChild(K);
+    var s = document.createElement('sub');
+    s.textContent = sub;
+    el.appendChild(s);
   }
 
   // --- the model -----------------------------------------------------------------------
@@ -131,9 +145,11 @@
       fields.vt.o.max = sMax;
     }
     els.vt.value = Math.min(ui.Vt, sMax);
-    els.vt.setAttribute('aria-valuetext', fmtVol(ui.Vt) + ' mL');
-    $('vt-sub').textContent = '0 to ' + fmtVol(sMax) + ' mL; the first equivalence point is at ' + fmtVol(V1) + ' mL';
+    // The slider says the pH too, so the curve can be followed by ear as the titrant goes in.
+    els.vt.setAttribute('aria-valuetext', fmtVol(ui.Vt) + ' mL, pH ' + st.pH.toFixed(2));
+    $('vt-sub').textContent = '0 to ' + fmtVol(sMax) + ' mL; ' + (n === 1 ? '' : 'first ') + 'equivalence at ' + fmtVol(V1) + ' mL';
     P.syncFields();
+    for (i = 0; i < 3; i++) $('pk' + (i + 1) + '-out').textContent = i < n ? fmtPK(ui.pK[i]) : '';
 
     // pK ordering warning.
     var warn = '';
@@ -169,12 +185,31 @@
     $('r-ion2').textContent = fmtMol(acid ? st.nH : st.nOH);
     $('r-ion2-sub').textContent = 'Free in solution, ' + Bars.sci((acid ? st.nH : st.nOH) * 1000 / st.Vtot, 3) + NB + 'M';
 
-    // Captions and labels that name the titrant.
-    $('curve-title').textContent = 'Titration Curve';
-    $('bars-caption').textContent = 'Moles of each form of the titrand' + (ui.showIons ? ', and of the free OH⁻ and H₃O⁺,' : '') + ' at ' + fmtVol(ui.Vt) + ' mL.';
+    // Captions, and the visuals' labels, which carry the current point for screen readers. Neither is a
+    // live region: they change on every step of the slider.
+    $('bars-caption').textContent = 'Moles of each species at ' + fmtVol(ui.Vt) + NB + 'mL';
     $('bars-note').textContent = ui.showIons
-      ? 'Hatched bars are the water ions, plain bars the forms of the titrand; each bar is named at its left. The ' + (acid ? 'OH⁻' : 'H₃O⁺') + ' bar is what is actually in solution, not the amount delivered: before equivalence nearly all of it has reacted.'
-      : 'Each bar is named at its left. Tick "Show free H₃O⁺ and OH⁻" to add the water ions, which the table lists in any case.';
+      ? 'Each bar is labelled with its species and its amount. Hatched bars are the water ions actually in solution.'
+      : 'Each bar is labelled with its species and its amount.';
+    var titrant = acid ? 'strong base' : 'strong acid';
+    els.curve.setAttribute('aria-label', 'Titration curve: pH against the volume of ' + titrant + ' added, with a dashed line at each equivalence volume. Current point: ' +
+      fmtVol(ui.Vt) + ' mL, pH ' + st.pH.toFixed(2) + ', ' + reg.text.charAt(0).toLowerCase() + reg.text.slice(1) + '. The key points are in the Key Points table on the Results page.');
+    var said = sp.map(function (s) { return s.label + ' ' + Bars.sci(st.moles[s.j], 3); });
+    // The water ions in the order the bars draw them: the titrant's own ion first.
+    var ohSaid = 'free OH⁻ ' + Bars.sci(st.nOH, 3), hSaid = 'free H₃O⁺ ' + Bars.sci(st.nH, 3);
+    if (ui.showIons) { if (acid) said.push(ohSaid, hSaid); else said.push(hSaid, ohSaid); }
+    els.bars.setAttribute('aria-label', 'Bar chart of the moles in the flask at ' + fmtVol(ui.Vt) + ' mL: ' + said.join(', ') +
+      ' mol. The same numbers are in the Species in the Flask table on the Results page.');
+    $('species-sub').textContent = 'At ' + fmtVol(ui.Vt) + NB + 'mL of ' + titrant + ' added (pH ' + st.pH.toFixed(2) + '): the moles, fraction of the titrand and molarity of each species, the free water ions, and the titrant added.';
+
+    // The results page's line: what is being titrated and where the current point is. A status region,
+    // written only when its text changes; it is heard only while the results page is shown.
+    var opt = els.preset.options[els.preset.selectedIndex];
+    var what = els.preset.value && opt ? opt.dataset.name
+      : (acid ? 'weak acid' : 'weak base') + ' with p' + (acid ? 'Ka' : 'Kb') + ' ' + ui.pK.slice(0, n).map(fmtPK).join(', ');
+    var now = 'Titrating ' + fmtVol(ui.Va) + ' mL of ' + fmtConc(ui.Ca) + ' M ' + what + ' with ' + fmtConc(ui.Ct) + ' M ' + titrant +
+      '. At ' + fmtVol(ui.Vt) + ' mL, pH ' + st.pH.toFixed(2) + '. ' + reg.text + '.';
+    if (now !== lastNow) { lastNow = now; $('results-now').textContent = now; }
 
     // Visuals and tables.
     Chart.set(sys, ui, st);
@@ -191,10 +226,20 @@
   }
 
   function fillTables(V1, sp) {
-    var n = ui.n, body = $('key-body'), rows = [['Start', 0]], k;
+    var n = ui.n, body = $('key-body'), rows = [['Start', 0]], k, acid = ui.mode === 'acid';
+    var steps = Chart.steps(), last = steps.length ? Chart.lastVolume() : 0;
     body.textContent = '';
+    // The guides' pK level for each step (pKa, or 14 − pKb for a base) and where the curve reaches it.
+    var pkName = acid ? 'a' : 'b', lvl = $('kp-pk-head'), cross = $('kp-x-head');
+    lvl.textContent = ''; cross.textContent = '';
+    if (!acid) lvl.appendChild(document.createTextNode('14 − '));
+    setPK(lvl, pkName, true);
+    lvl.appendChild(document.createTextNode(' of the step'));
+    cross.appendChild(document.createTextNode('Curve reaches pH = ' + (acid ? '' : '14 − ')));
+    setPK(cross, pkName, true);
+    cross.appendChild(document.createTextNode(' at (mL)'));
     for (k = 1; k <= n; k++) {
-      rows.push([n === 1 ? 'Half-equivalence' : 'Half-way to equivalence ' + k, (k - 0.5) * V1]);
+      rows.push([n === 1 ? 'Half-equivalence' : 'Half-way to equivalence ' + k, (k - 0.5) * V1, steps[k - 1]]);
       rows.push([n === 1 ? 'Equivalence' : 'Equivalence ' + k, k * V1]);
     }
     rows.push([(n + 1) + ' × the first equivalence volume', (n + 1) * V1]);
@@ -205,6 +250,9 @@
       cell(tr, r[0], true);
       cell(tr, fmtVol(r[1]));
       cell(tr, M.state(sys, ui, r[1]).pH.toFixed(2));
+      var g = r[2];
+      cell(tr, g ? fmtPK(g.pK) : '—');
+      cell(tr, g ? (g.Vx === null ? 'not by ' + fmtVol(last) : fmtVol(g.Vx)) : '—');
       body.appendChild(tr);
     });
 
@@ -247,7 +295,7 @@
   // --- controls ------------------------------------------------------------------------
 
   function clearActivity() {
-    els.actChips.forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+    els.activity.value = '';
   }
 
   function logField(range, num, key, unit) {
@@ -317,7 +365,7 @@
     var a = M.ACTIVITIES[id - 1];
     if (!a) return;
     applySetup(a);
-    els.actChips.forEach(function (b) { b.setAttribute('aria-pressed', String(+b.dataset.act === id)); });
+    els.activity.value = String(id);
     var msg = 'Activity ' + id + ' loaded: ' + a.name + '.';
     if ($('load-status').textContent === msg) $('load-status').textContent = '';
     $('load-status').textContent = msg;
@@ -328,9 +376,10 @@
     els.modeChips = Array.prototype.slice.call(document.querySelectorAll('#mode-chips .chip'));
     els.siteChips = Array.prototype.slice.call(document.querySelectorAll('#sites-chips .chip'));
     els.scaleChips = Array.prototype.slice.call(document.querySelectorAll('#scale-chips .chip'));
-    els.actChips = Array.prototype.slice.call(document.querySelectorAll('#act-chips .chip'));
+    els.activity = $('activity');
     els.ca = $('ca'); els.va = $('va'); els.ct = $('ct'); els.vt = $('vt');
     els.ions = $('ions');
+    els.curve = $('curve'); els.bars = $('bars');
 
     Chart.init($('curve'), $('curve-tip'), {
       onPick: function (V) {
@@ -390,11 +439,12 @@
       });
     });
     els.ions.addEventListener('change', function () { ui.showIons = els.ions.checked; render(); });
-    els.actChips.forEach(function (b) { b.addEventListener('click', function () { loadActivity(+b.dataset.act); }); });
+    els.activity.addEventListener('change', function () { if (els.activity.value) loadActivity(+els.activity.value); });
+    // The student guide's Load buttons set the activity up and go to the instrument page to do it.
     Array.prototype.forEach.call(document.querySelectorAll('.load'), function (b) {
       b.addEventListener('click', function () {
         loadActivity(+b.dataset.act);
-        document.querySelector('main').scrollIntoView({ behavior: P.prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+        location.hash = 'instrument';
       });
     });
 

@@ -1,0 +1,204 @@
+/* Titration Curve Explorer: this page's own layout, the species panel, the results tabs and the student
+   guide. House tokens and components are in css/styles.css.
+
+   Two pages in one document (js/layout.js shows one at a time, #instrument and #results). The instrument
+   page is the titration curve, with a slim toolbar above it (the set-up used most, a Settings drop-down for
+   the rest), the species in the flask beside it and the titrant's slider under it. The results page is
+   the tabs: Readouts, Species in the Flask, Key Points, Student Guide and About. Both follow the same
+   titration. When the window is large enough, layout.js adds .one-screen to <html> and each page fills
+   the window with no page scroll (style guide 4.1); below that, each page stacks and scrolls. */
+
+/* ---------- Pages and the page switch ---------- */
+
+.page-instrument { display: grid; gap: 16px; }
+
+/* The page switch in the header: links, the current page underlined in the accent with darker text. */
+.page-nav { display: flex; flex-wrap: wrap; gap: 4px; align-self: center; }
+.page-nav a {
+  padding: 6px 12px 5px; border-bottom: 3px solid transparent; border-radius: 6px 6px 0 0;
+  font-weight: 600; color: var(--text-secondary); text-decoration: none;
+}
+.page-nav a:hover { background: var(--surface-2); color: var(--text-primary); }
+.page-nav a[aria-current="page"] { color: var(--text-primary); border-bottom-color: var(--accent); }
+
+/* ---------- Controls: the toolbar, the Settings drop-down and the titrant's slider ---------- */
+
+/* Two rows that wrap on a narrow window: row 1 sets up the titration, row 2 loads an activity, reports
+   where the current point is and opens Settings. Every control is always there, switched off when the
+   titrand does not use it, so the toolbar keeps its size and the curve does not move. */
+.toolbar { display: grid; gap: 8px; }
+.tb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; }
+.tb-item { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.tb-label { font-weight: 600; font-size: 0.9rem; }
+.tb-item select { margin: 0; }
+.pk-num { width: 4em; }
+.tb-run .go-results { margin-left: auto; }
+/* The region of the curve and any pK warning; room for both lines is kept so the curve never changes
+   size as the messages come and go. */
+.run-status { flex: 1 1 16rem; min-height: 3em; font-size: 0.875rem; color: var(--text-secondary); }
+.run-status #status { color: var(--text-primary); font-weight: 600; }
+/* A typing box's error message opens under the box, over what is below, so the toolbar keeps its size. */
+.tb-msg {
+  position: absolute; left: 0; top: calc(100% + 4px); z-index: 30; width: max-content; max-width: 22rem;
+  margin: 0; padding: 4px 8px; background: var(--surface); border: 1px solid var(--critical-text); border-radius: 6px;
+}
+.tb-msg:empty { display: none; }
+
+/* Settings: a native disclosure styled as a button with a chevron, filled while open. */
+.settings { position: relative; z-index: 20; }
+.settings > summary { display: inline-flex; align-items: center; gap: 8px; list-style: none; }
+.settings > summary::-webkit-details-marker { display: none; }
+.settings > summary::after {
+  content: ""; width: 7px; height: 7px; border: solid currentColor; border-width: 0 2px 2px 0;
+  transform: translateY(-2px) rotate(45deg);
+}
+.settings[open] > summary { background: var(--text-primary); color: var(--surface); border-color: transparent; }
+.settings[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+/* Closed, the panel has no box at all (some browsers keep a hidden one, sized for a different width). */
+.settings:not([open]) > .settings-panel { display: none; }
+.settings-panel {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 16px 32px;
+  margin-top: 10px; padding: 14px 18px 16px; background: var(--surface);
+  border: 2px solid var(--text-muted); border-radius: var(--radius);
+}
+/* Stacked, the open panel takes a row of its own, the full width of the toolbar, and pushes what follows down. */
+html:not(.one-screen) .settings[open] { flex: 1 1 100%; }
+.settings-group { display: grid; gap: 12px; align-content: start; }
+.settings-group .control { width: 100%; }
+.settings-group input[type="range"] { margin: 6px 0 2px; }
+
+.info-title { margin: 0; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); }
+.chart-options { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
+.option-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.option-group .option-label { font-size: 0.9rem; }
+
+/* The titrant's slider runs the width of the curve, right under it and its legend; its caption takes a
+   line of its own when the row is too narrow for it. */
+.volume-bar { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
+.volume-bar .control-head { justify-content: flex-start; gap: 10px; }
+.volume-bar label { font-weight: 600; }
+.volume-bar input[type="range"] { flex: 1 1 14rem; width: auto; margin: 0; }
+.volume-bar .control-sub { margin: 0; }
+.volume-bar .tb-msg { top: auto; bottom: calc(100% + 4px); }
+
+/* ---------- The curve and the species in the flask ---------- */
+
+/* The curve, its legend and the titrant's slider, then the species panel: under the curve, with its bars
+   lying down, on a narrow or portrait window; beside it, with its bars standing up, on a wide landscape
+   one. Source order is curve, legend, slider, species, and beside the curve the species panel is a column
+   of its own to the right, so the order of reading is the same either way. */
+.instrument { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px 24px; margin-top: 12px; }
+.curve-wrap { --h: clamp(260px, 32vw, max(380px, 55vh)); }   /* grows with the window height on big screens */
+.curve-legend { margin-top: 0; align-self: start; }
+.volume-bar { align-self: start; }
+.species-box { min-width: 0; }
+.species-sub { margin: 2px 0 8px; font-size: 0.85rem; color: var(--text-secondary); }
+.species-box .chart-options { margin-bottom: 8px; }
+.bars-wrap { --h: 180px; --h-min: 140px; }   /* both set by script from the way the bars stand and their number */
+
+/* Must match BESIDE in js/bars.js, which stands the bars up whenever this applies. */
+@media (min-width: 981px) and (min-aspect-ratio: 1/1) {
+  .instrument { grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem); grid-template-rows: auto auto 1fr; }
+  .curve-wrap { grid-column: 1; grid-row: 1; }
+  .curve-legend { grid-column: 1; grid-row: 2; }
+  .volume-bar { grid-column: 1; grid-row: 3; }
+  .species-box { grid-column: 2; grid-row: 1 / 4; padding-left: 20px; border-left: 1px solid var(--grid); }
+}
+
+/* ---------- The results page: tabs ---------- */
+
+.results-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 6px; }
+.results-now { flex: 1 1 20rem; margin: 0; font-size: 0.9rem; color: var(--text-secondary); }
+
+/* The chosen tab is underlined in the accent and its text is darker, so it differs by more than colour;
+   every tab keeps its place and size. */
+.tabs { display: flex; flex-wrap: wrap; gap: 2px 0; margin: 0 -6px 12px; border-bottom: 1px solid var(--grid); }
+.tab {
+  margin-bottom: -1px; padding: 8px 12px 7px;
+  font: inherit; font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);
+  background: transparent; border: 0; border-bottom: 3px solid transparent; border-radius: 6px 6px 0 0;
+  cursor: pointer;
+}
+.tab:hover { background: var(--surface-2); color: var(--text-primary); }
+.tab[aria-selected="true"] { color: var(--text-primary); border-bottom-color: var(--accent); }
+
+/* The card keeps one height whatever tab is open, so changing tabs never changes the length of the page
+   and nothing on the screen jumps. On one screen the page sets the card's height; stacked, the card and the
+   footer fit in the window together. The open tab fills the card below the tab row and scrolls inside
+   itself when its content is taller; each tab keeps its own scroll position. The padding keeps the focus
+   ring of anything at its edge inside the scroll box. */
+.results-card { display: flex; flex-direction: column; }
+html:not(.one-screen) .results-card { height: calc(100vh - 6rem); height: calc(100dvh - 6rem); min-height: 26rem; max-height: 60rem; }
+.results-card .tab-panel { flex: 1 1 0; min-height: 0; overflow: auto; padding: 4px; margin: -4px; }
+.results-card .tab-panel > .card-sub:first-of-type { margin-top: 0; }
+.results-card .notes-body { max-width: none; }
+.results-card .notes-body > * { max-width: 85ch; }
+.about-lede { color: var(--text-primary); }
+
+/* The student guide's activities: a bar in the series colour, with a Load button beside the title. */
+.act { border-left: 3px solid var(--series-c); padding: 2px 0 2px 14px; margin: 14px 0; }
+.act-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 4px; }
+.act-head h3 { margin: 0; }
+.ask { background: var(--surface-2); border-radius: 8px; padding: 8px 12px; margin: 0.4rem 0 0.6rem; color: var(--text-primary); }
+
+/* ---------- One screen ---------- */
+
+html.one-screen body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+html.one-screen .site-header { flex: none; padding-top: 10px; padding-bottom: 10px; }
+html.one-screen .title-row { align-items: center; }
+/* The topic line and the one-sentence summary give way to the curve; the summary is also under About. */
+html.one-screen .eyebrow, html.one-screen .lede { display: none; }
+html.one-screen h1, html.one-screen[data-present] h1 { font-size: 1.6rem; }
+html.one-screen .title-rule { width: 200px; margin: 6px 0 0; }
+html.one-screen .present-hint { margin-top: 4px; }
+html.one-screen main { flex: 1 1 0; min-height: 0; display: block; padding-bottom: 0; }
+html.one-screen .site-footer { flex: none; padding-top: 6px; padding-bottom: 8px; }
+html.one-screen .card { padding: 12px 16px; min-height: 0; }
+
+/* Each page fills the window between the header and the footer. */
+html.one-screen .page { height: 100%; }
+html.one-screen .page-instrument { grid-template-rows: minmax(0, 1fr); }
+html.one-screen .page-results { display: flex; flex-direction: column; }
+html.one-screen .page-results > .results-card { flex: 1 1 0; min-height: 0; }
+
+/* The instrument page: toolbar, then the curve as large as the space allows, its legend and the titrant's
+   slider, with the species beside them or under them. The curve's size comes from its grid cell, never
+   from its canvas. */
+html.one-screen .instrument-card { display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: auto; }
+/* The Settings panel opens over the curve, under the toolbar's second row at its right end, and closes
+   again. It is placed from the row, not the button, so it is never wider than the card. */
+html.one-screen .tb-run { position: relative; z-index: 20; }
+html.one-screen .settings { position: static; }
+html.one-screen .settings-panel {
+  position: absolute; right: 0; top: 100%; width: min(56rem, 100%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+html.one-screen .instrument { min-height: 0; grid-template-rows: minmax(0, 1fr) auto auto auto; margin-top: 10px; gap: 8px 24px; }
+html.one-screen .curve-wrap, html.one-screen[data-present] .curve-wrap { height: auto; min-height: 0; contain: size; }
+html.one-screen .curve-legend { gap: 2px 18px; }
+/* Beside the curve, the species panel is the full height of the page's card; standing bars take all the
+   height it has left, and the panel scrolls inside itself if the window is too short even for that. */
+html.one-screen .species-box { min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+html.one-screen .species-box > * { flex-shrink: 0; }
+html.one-screen .bars-wrap, html.one-screen[data-present] .bars-wrap { flex: 0 1 var(--h); height: auto; min-height: var(--h-min); contain: size; }
+html.one-screen .bars-wrap.is-upright, html.one-screen[data-present] .bars-wrap.is-upright { flex: 1 1 var(--h); }
+@media (min-width: 981px) and (min-aspect-ratio: 1/1) {
+  html.one-screen .instrument { grid-template-rows: minmax(0, 1fr) auto auto; }
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 980px) {
+  .title-row { flex-wrap: wrap; }
+}
+
+/* ---------- Presentation mode ---------- */
+
+@media (min-width: 900px) {
+  html[data-present] .info-title { font-size: 0.9rem; }
+  html[data-present] .run-status, html[data-present] .species-sub { font-size: 1.05rem; }
+  html[data-present] .tab, html[data-present] .page-nav a { padding: 10px 14px 9px; font-size: 1.05rem; }
+  html[data-present] .results-now, html[data-present] .tb-label,
+  html[data-present] .option-group .option-label { font-size: 1.05rem; }
+  html.one-screen[data-present] .bars-wrap { flex-basis: min(calc(var(--h) * 1.5), 80vh); }
+}

@@ -6,7 +6,9 @@
   <title>Titration Curve Explorer</title>
   <meta name="description" content="Titrate a weak acid or weak base with a strong titrant, move along the pH curve, and see how many moles of each species are in the flask at that point.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232670cc'/%3E%3Cpath d='M4 24c7 0 9-1 11-4 1-2 1-5 1-8 0 3 0 6 1 8 2 3 4 4 11 4' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="css/styles.css">
+  <!-- ?v= tags: change all of them to a new value with every release so browsers fetch the new files. -->
+  <link rel="stylesheet" href="css/styles.css?v=20261020-1">
+  <link rel="stylesheet" href="css/page.css?v=20261020-1">
   <script>
     // Apply the saved theme before first paint so the page does not flash.
     try {
@@ -27,6 +29,10 @@
         <p class="lede">A weak acid or weak base in the flask, a strong base or strong acid in the burette. Set the conditions, move along the curve, and watch the species in the flask trade places as the titrant goes in.</p>
         <p class="present-hint">Alt + Shift + P toggles · Esc exits</p>
       </div>
+      <nav class="page-nav" aria-label="Pages">
+        <a href="#instrument" id="nav-instrument" aria-current="page">Instrument</a>
+        <a href="#results" id="nav-results">Results</a>
+      </nav>
       <div class="header-actions">
         <button id="theme" class="btn ghost" type="button" title="Switch between automatic, light and dark colors">Theme: auto</button>
         <button id="present" class="btn ghost" type="button" aria-pressed="false" title="Larger text and controls for projecting. Escape exits.">Present</button>
@@ -35,180 +41,247 @@
   </header>
 
   <main id="main">
-    <section class="card controls" aria-labelledby="controls-title">
-      <h2 id="controls-title">Titration Conditions</h2>
+    <!-- Page 1, the instrument: the curve fills the window, with the species in the flask beside it. The
+         toolbar above holds the set-up used most and a Settings drop-down the rest; the titrant's slider
+         runs under the curve. -->
+    <div class="page page-instrument" id="page-instrument">
+      <section class="card visual-card instrument-card" aria-labelledby="view-title">
+        <h2 id="view-title" class="visually-hidden">The Titration</h2>
 
-      <div class="group">
-        <div class="controls-grid">
-          <div class="option">
-            <span class="option-label" id="mode-label">Titrand</span>
-            <div class="chips" id="mode-chips" role="group" aria-labelledby="mode-label">
-              <button type="button" class="chip" data-mode="acid" aria-pressed="true">Weak acid</button>
-              <button type="button" class="chip" data-mode="base" aria-pressed="false">Weak base</button>
+        <div class="toolbar">
+          <div class="tb-row tb-setup">
+            <div class="tb-item">
+              <span class="tb-label" id="mode-label">Titrand</span>
+              <div class="chips" id="mode-chips" role="group" aria-labelledby="mode-label" aria-describedby="mode-sub">
+                <button type="button" class="chip" data-mode="acid" aria-pressed="true">Weak acid</button>
+                <button type="button" class="chip" data-mode="base" aria-pressed="false">Weak base</button>
+              </div>
+              <p class="visually-hidden" id="mode-sub"></p>
             </div>
-            <p class="control-sub" id="mode-sub"></p>
+
+            <div class="tb-item">
+              <span class="tb-label" id="sites-label">Proton sites</span>
+              <div class="chips" id="sites-chips" role="group" aria-labelledby="sites-label" aria-describedby="sites-sub">
+                <button type="button" class="chip" data-n="1" aria-pressed="true">1</button>
+                <button type="button" class="chip" data-n="2" aria-pressed="false">2</button>
+                <button type="button" class="chip" data-n="3" aria-pressed="false">3</button>
+              </div>
+              <p class="visually-hidden" id="sites-sub"></p>
+            </div>
+
+            <div class="tb-item">
+              <label class="tb-label" for="preset">Example</label>
+              <select id="preset" aria-describedby="preset-sub" autocomplete="off"></select>
+              <p class="visually-hidden" id="preset-sub">Literature pK values at 25 °C; editing a pK switches back to custom</p>
+            </div>
+
+            <div class="tb-item pk-item">
+              <label class="tb-label" for="pk1-num" id="pk1-num-label"></label>
+              <span class="entry"><input id="pk1-num" class="num pk-num" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" aria-describedby="pk1-msg"></span>
+              <p class="num-msg tb-msg" id="pk1-msg" role="alert"></p>
+            </div>
+            <div class="tb-item pk-item">
+              <label class="tb-label" for="pk2-num" id="pk2-num-label"></label>
+              <span class="entry"><input id="pk2-num" class="num pk-num" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" aria-describedby="pk2-msg"></span>
+              <p class="num-msg tb-msg" id="pk2-msg" role="alert"></p>
+            </div>
+            <div class="tb-item pk-item">
+              <label class="tb-label" for="pk3-num" id="pk3-num-label"></label>
+              <span class="entry"><input id="pk3-num" class="num pk-num" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" aria-describedby="pk3-msg"></span>
+              <p class="num-msg tb-msg" id="pk3-msg" role="alert"></p>
+            </div>
           </div>
-          <div class="option">
-            <span class="option-label" id="sites-label">Proton sites</span>
-            <div class="chips" id="sites-chips" role="group" aria-labelledby="sites-label">
-              <button type="button" class="chip" data-n="1" aria-pressed="true">1</button>
-              <button type="button" class="chip" data-n="2" aria-pressed="false">2</button>
-              <button type="button" class="chip" data-n="3" aria-pressed="false">3</button>
+
+          <div class="tb-row tb-run">
+            <div class="tb-item">
+              <label class="tb-label" for="activity">Activity</label>
+              <select id="activity" aria-describedby="activity-sub" autocomplete="off">
+                <option value="">none</option>
+                <option value="1">1: Four regions</option>
+                <option value="2">2: What pKa controls</option>
+                <option value="3">3: Dilution</option>
+                <option value="4">4: Weak base</option>
+                <option value="5">5: Triprotic acid</option>
+                <option value="6">6: Carbonate</option>
+                <option value="7">7: Close pKa values</option>
+              </select>
+              <p class="visually-hidden" id="activity-sub">Each one sets the page up for an activity in the Student Guide on the Results page</p>
             </div>
-            <p class="control-sub" id="sites-sub"></p>
-          </div>
-          <div class="option">
-            <span class="option-label" id="act-label">Activity</span>
-            <div class="chips" id="act-chips" role="group" aria-labelledby="act-label">
-              <button type="button" class="chip" data-act="1" aria-pressed="false">1 Four regions</button>
-              <button type="button" class="chip" data-act="2" aria-pressed="false">2 What pKa controls</button>
-              <button type="button" class="chip" data-act="3" aria-pressed="false">3 Dilution</button>
-              <button type="button" class="chip" data-act="4" aria-pressed="false">4 Weak base</button>
-              <button type="button" class="chip" data-act="5" aria-pressed="false">5 Triprotic acid</button>
-              <button type="button" class="chip" data-act="6" aria-pressed="false">6 Carbonate</button>
-              <button type="button" class="chip" data-act="7" aria-pressed="false">7 Close pKa values</button>
+            <div class="run-status">
+              <p id="status" role="status"></p>
+              <p id="warn" class="warn" role="status"></p>
             </div>
-            <p class="control-sub">Each one sets the page up for an activity in the student guide below</p>
+            <details class="settings" id="settings">
+              <summary class="btn">Settings</summary>
+              <div class="settings-panel">
+                <div class="settings-group" role="group" aria-labelledby="titrand-title">
+                  <h3 class="info-title" id="titrand-title">Titrand: weak acid</h3>
+                  <div class="control">
+                    <div class="control-head">
+                      <label for="ca">Titrand concentration</label>
+                      <span class="entry"><input id="ca-num" class="num" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Titrand concentration in molar" aria-describedby="ca-msg"><span class="unit" aria-hidden="true">M</span></span>
+                    </div>
+                    <input id="ca" type="range" min="-4" max="0" step="0.01" value="-1" aria-describedby="ca-sub" autocomplete="off">
+                    <p class="num-msg" id="ca-msg" role="alert"></p>
+                    <p class="control-sub" id="ca-sub">0.0001 to 1 M; the slider moves by powers of ten. Type 0.05 or 10 mM</p>
+                  </div>
+                  <div class="control">
+                    <div class="control-head">
+                      <label for="va">Titrand volume</label>
+                      <span class="entry"><input id="va-num" class="num" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Titrand volume in millilitres" aria-describedby="va-msg"><span class="unit" aria-hidden="true">mL</span></span>
+                    </div>
+                    <input id="va" type="range" min="1" max="100" step="0.5" value="25" aria-describedby="va-sub" autocomplete="off">
+                    <p class="num-msg" id="va-msg" role="alert"></p>
+                    <p class="control-sub" id="va-sub">1 to 100 mL in the flask before any titrant is added</p>
+                  </div>
+                </div>
+                <div class="settings-group" role="group" aria-labelledby="pk-title">
+                  <h3 class="info-title" id="pk-title">Equilibrium constants</h3>
+                  <div class="control" id="pk1-control">
+                    <div class="control-head">
+                      <label for="pk1" id="pk1-label"></label>
+                      <output id="pk1-out" for="pk1"></output>
+                    </div>
+                    <input id="pk1" type="range" min="-2" max="16" step="0.05" value="4.76" aria-describedby="pk1-sub" autocomplete="off">
+                    <p class="control-sub" id="pk1-sub"></p>
+                  </div>
+                  <div class="control" id="pk2-control">
+                    <div class="control-head">
+                      <label for="pk2" id="pk2-label"></label>
+                      <output id="pk2-out" for="pk2"></output>
+                    </div>
+                    <input id="pk2" type="range" min="-2" max="16" step="0.05" value="7.2" aria-describedby="pk2-sub" autocomplete="off">
+                    <p class="control-sub" id="pk2-sub"></p>
+                  </div>
+                  <div class="control" id="pk3-control">
+                    <div class="control-head">
+                      <label for="pk3" id="pk3-label"></label>
+                      <output id="pk3-out" for="pk3"></output>
+                    </div>
+                    <input id="pk3" type="range" min="-2" max="16" step="0.05" value="12.35" aria-describedby="pk3-sub" autocomplete="off">
+                    <p class="control-sub" id="pk3-sub"></p>
+                  </div>
+                </div>
+                <div class="settings-group" role="group" aria-labelledby="titrant-title">
+                  <h3 class="info-title" id="titrant-title">Titrant: strong base</h3>
+                  <div class="control">
+                    <div class="control-head">
+                      <label for="ct">Titrant concentration</label>
+                      <span class="entry"><input id="ct-num" class="num" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Titrant concentration in molar" aria-describedby="ct-msg"><span class="unit" aria-hidden="true">M</span></span>
+                    </div>
+                    <input id="ct" type="range" min="-4" max="0" step="0.01" value="-1" aria-describedby="ct-sub" autocomplete="off">
+                    <p class="num-msg" id="ct-msg" role="alert"></p>
+                    <p class="control-sub" id="ct-sub">0.0001 to 1 M; the slider moves by powers of ten</p>
+                  </div>
+                </div>
+              </div>
+            </details>
+            <a class="btn go-results" href="#results">See the results<span aria-hidden="true"> →</span></a>
           </div>
         </div>
-      </div>
 
-      <div class="group" role="group" aria-labelledby="titrand-title">
-        <h3 class="group-title" id="titrand-title">Titrand: Weak Acid</h3>
-        <div class="controls-grid">
-          <div class="control">
-            <div class="control-head">
-              <label for="ca">Titrand concentration</label>
-              <span class="entry"><input id="ca-num" class="num" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Titrand concentration in molar" aria-describedby="ca-msg"><span class="unit" aria-hidden="true">M</span></span>
-            </div>
-            <input id="ca" type="range" min="-4" max="0" step="0.01" value="-1" aria-describedby="ca-sub">
-            <p class="num-msg" id="ca-msg" role="alert"></p>
-            <p class="control-sub" id="ca-sub">0.0001 to 1 M; the slider moves by powers of ten. Type 0.05 or 10 mM</p>
+        <div class="instrument">
+          <div class="visual curve-wrap">
+            <canvas id="curve" class="pickable" role="img" aria-label="Titration curve: pH against the volume of titrant added, with the current point marked. Its key points are in the Key Points table on the Results page."></canvas>
+            <div id="curve-tip" class="tooltip" hidden></div>
           </div>
-          <div class="control">
-            <div class="control-head">
-              <label for="va">Titrand volume</label>
-              <span class="entry"><input id="va-num" class="num" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Titrand volume in millilitres" aria-describedby="va-msg"><span class="unit" aria-hidden="true">mL</span></span>
-            </div>
-            <input id="va" type="range" min="1" max="100" step="0.5" value="25" aria-describedby="va-sub">
-            <p class="num-msg" id="va-msg" role="alert"></p>
-            <p class="control-sub" id="va-sub">1 to 100 mL in the flask before any titrant is added</p>
-          </div>
-          <div class="control">
-            <div class="control-head">
-              <label for="preset" class="control-label">Example</label>
-              <select id="preset"></select>
-            </div>
-            <p class="control-sub">Literature pK values at 25 °C; editing a pK below switches back to custom</p>
-          </div>
-          <div class="control" id="pk1-control">
-            <div class="control-head">
-              <label for="pk1" id="pk1-label"></label>
-              <span class="entry"><input id="pk1-num" class="num" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" aria-describedby="pk1-msg"><span class="unit" aria-hidden="true"></span></span>
-            </div>
-            <input id="pk1" type="range" min="-2" max="16" step="0.05" value="4.76" aria-describedby="pk1-sub">
-            <p class="num-msg" id="pk1-msg" role="alert"></p>
-            <p class="control-sub" id="pk1-sub"></p>
-          </div>
-          <div class="control" id="pk2-control" hidden>
-            <div class="control-head">
-              <label for="pk2" id="pk2-label"></label>
-              <span class="entry"><input id="pk2-num" class="num" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" aria-describedby="pk2-msg"><span class="unit" aria-hidden="true"></span></span>
-            </div>
-            <input id="pk2" type="range" min="-2" max="16" step="0.05" value="7.2" aria-describedby="pk2-sub">
-            <p class="num-msg" id="pk2-msg" role="alert"></p>
-            <p class="control-sub" id="pk2-sub"></p>
-          </div>
-          <div class="control" id="pk3-control" hidden>
-            <div class="control-head">
-              <label for="pk3" id="pk3-label"></label>
-              <span class="entry"><input id="pk3-num" class="num" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" aria-describedby="pk3-msg"><span class="unit" aria-hidden="true"></span></span>
-            </div>
-            <input id="pk3" type="range" min="-2" max="16" step="0.05" value="12.35" aria-describedby="pk3-sub">
-            <p class="num-msg" id="pk3-msg" role="alert"></p>
-            <p class="control-sub" id="pk3-sub"></p>
-          </div>
-        </div>
-        <p class="warn" id="warn" role="status"></p>
-      </div>
+          <ul class="legend curve-legend" role="list">
+            <li class="lg"><span class="lg-key" style="--key: var(--series-c)" aria-hidden="true"></span><span>Titration curve</span></li>
+            <li class="lg"><span class="lg-dot" style="--key: var(--series-c)" aria-hidden="true"></span><span>Current point</span></li>
+            <li class="lg"><span class="lg-key dashed" style="--key: var(--text-secondary)" aria-hidden="true"></span><span>Equivalence volume</span></li>
+            <li class="lg"><span class="lg-key dotted" style="--key: var(--text-secondary)" aria-hidden="true"></span><span>Half-equivalence volume</span></li>
+            <li class="lg"><span class="lg-key dashdot" style="--key: var(--text-secondary)" aria-hidden="true"></span><span>pH = p<i>K</i><sub>a</sub> (14 − p<i>K</i><sub>b</sub> for a base)</span></li>
+          </ul>
 
-      <div class="group" role="group" aria-labelledby="titrant-title">
-        <h3 class="group-title" id="titrant-title">Titrant: Strong Base</h3>
-        <div class="controls-grid">
-          <div class="control">
-            <div class="control-head">
-              <label for="ct">Titrant concentration</label>
-              <span class="entry"><input id="ct-num" class="num" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Titrant concentration in molar" aria-describedby="ct-msg"><span class="unit" aria-hidden="true">M</span></span>
-            </div>
-            <input id="ct" type="range" min="-4" max="0" step="0.01" value="-1" aria-describedby="ct-sub">
-            <p class="num-msg" id="ct-msg" role="alert"></p>
-            <p class="control-sub" id="ct-sub">0.0001 to 1 M; the slider moves by powers of ten</p>
-          </div>
-          <div class="control">
+          <div class="volume-bar">
             <div class="control-head">
               <label for="vt" id="vt-label">Strong base added</label>
               <span class="entry"><input id="vt-num" class="num" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Strong base added in millilitres" aria-describedby="vt-msg"><span class="unit" aria-hidden="true">mL</span></span>
             </div>
-            <input id="vt" type="range" min="0" max="50" step="0.025" value="12.5" aria-describedby="vt-sub">
-            <p class="num-msg" id="vt-msg" role="alert"></p>
+            <input id="vt" type="range" min="0" max="50" step="0.025" value="12.5" aria-describedby="vt-sub" autocomplete="off">
             <p class="control-sub" id="vt-sub"></p>
+            <p class="num-msg tb-msg" id="vt-msg" role="alert"></p>
+          </div>
+
+          <div class="species-box">
+            <h3 class="info-title" id="bars-title">Species in the flask</h3>
+            <p class="species-sub" id="bars-caption"></p>
+            <div class="chart-options">
+              <div class="option-group">
+                <span class="option-label" id="scale-label">Bar axis</span>
+                <div class="chips" id="scale-chips" role="group" aria-labelledby="scale-label">
+                  <button type="button" class="chip" data-scale="linear" aria-pressed="true">Linear</button>
+                  <button type="button" class="chip" data-scale="log" aria-pressed="false">Log</button>
+                </div>
+              </div>
+              <label class="check"><input type="checkbox" id="ions"><span>Show free H₃O⁺ and OH⁻</span></label>
+            </div>
+            <div class="visual bars-wrap">
+              <canvas id="bars" role="img" aria-label="Bar chart of the moles of each form of the titrand."></canvas>
+              <div id="bars-tip" class="tooltip" hidden></div>
+            </div>
+            <p class="legend-note" id="bars-note"></p>
           </div>
         </div>
-      </div>
-      <p id="load-status" class="visually-hidden" role="status"></p>
-    </section>
+      </section>
+    </div>
 
-    <section class="card visual-card" aria-labelledby="curve-title">
-      <div class="card-head">
-        <h2 id="curve-title">Titration Curve</h2>
-        <p class="card-sub">pH from 0 to 14 against the volume of titrant added. Click or drag on the curve to move the current point; the Strong base added slider does the same from the keyboard.</p>
-      </div>
-      <div class="visual curve-wrap">
-        <canvas id="curve" class="pickable" role="img" aria-label="Titration curve: pH against volume of titrant added, with the current point marked. The current point's values are in the Readouts panel and the curve's key points are in the table below."></canvas>
-        <div id="curve-tip" class="tooltip" hidden></div>
-      </div>
-      <ul class="legend" role="list">
-        <li class="lg"><span class="lg-key" style="--key: var(--series-c)" aria-hidden="true"></span><span>Titration curve: pH as the titrant goes in</span></li>
-        <li class="lg"><span class="lg-dot" style="--key: var(--series-c)" aria-hidden="true"></span><span>Current point, at the volume set above, with its pH beside it</span></li>
-        <li class="lg"><span class="lg-key dashed" style="--key: var(--text-secondary)" aria-hidden="true"></span><span>Equivalence volume, one line per proton site (V<sub>eq</sub>, or V<sub>1</sub>, V<sub>2</sub>, V<sub>3</sub>)</span></li>
-        <li class="lg"><span class="lg-key dotted" style="--key: var(--text-secondary)" aria-hidden="true"></span><span>Half-equivalence volume, where the pH should equal the p<i>K</i><sub>a</sub> of that step</span></li>
-        <li class="lg"><span class="lg-key dashdot" style="--key: var(--text-secondary)" aria-hidden="true"></span><span>pH = p<i>K</i><sub>a</sub> level (14 − p<i>K</i><sub>b</sub> for a base), drawn out to the half-equivalence line</span></li>
-      </ul>
-      <details class="table-view">
-        <summary>Show the Curve's Key Points as a Table</summary>
-        <div class="table-scroll">
-          <table>
-            <caption class="visually-hidden">pH at the start, at each half-equivalence and equivalence volume, past the last equivalence point, and at the current point</caption>
-            <thead>
-              <tr><th scope="col" class="text">Point</th><th scope="col">Volume added (mL)</th><th scope="col">pH</th></tr>
-            </thead>
-            <tbody id="key-body"></tbody>
-          </table>
+    <!-- Page 2, the results: everything computed from the titration, one tab at a time. Same document, so
+         it always shows the titration set up on the instrument page. -->
+    <div class="page page-results" id="page-results" hidden>
+      <div class="card chart-card results-card">
+        <div class="results-head">
+          <p class="results-now" id="results-now" role="status"></p>
+          <a class="btn go-instrument" href="#instrument"><span aria-hidden="true">← </span>Back to the instrument</a>
         </div>
-      </details>
-    </section>
+        <div class="tabs" role="tablist" aria-label="Results">
+          <button type="button" class="tab" role="tab" id="tab-readouts" aria-controls="panel-readouts" aria-selected="true">Readouts</button>
+          <button type="button" class="tab" role="tab" id="tab-species" aria-controls="panel-species" aria-selected="false" tabindex="-1">Species in the Flask</button>
+          <button type="button" class="tab" role="tab" id="tab-points" aria-controls="panel-points" aria-selected="false" tabindex="-1">Key Points</button>
+          <button type="button" class="tab" role="tab" id="tab-guide" aria-controls="panel-guide" aria-selected="false" tabindex="-1">Student Guide</button>
+          <button type="button" class="tab" role="tab" id="tab-about" aria-controls="panel-about" aria-selected="false" tabindex="-1">About</button>
+        </div>
 
-    <div class="grid-2">
-      <section class="card chart-card" aria-labelledby="bars-title">
-        <div class="card-head">
-          <h2 id="bars-title">Species in the Flask</h2>
-        </div>
-        <p class="card-sub" id="bars-caption"></p>
-        <div class="control-row">
-          <span class="option-label" id="scale-label">Bar axis</span>
-          <div class="chips" id="scale-chips" role="group" aria-labelledby="scale-label">
-            <button type="button" class="chip" data-scale="linear" aria-pressed="true">Linear</button>
-            <button type="button" class="chip" data-scale="log" aria-pressed="false">Log</button>
+        <div class="tab-panel" role="tabpanel" id="panel-readouts" aria-labelledby="tab-readouts" tabindex="0">
+          <h2 id="readouts-title" class="visually-hidden">Readouts</h2>
+          <div class="tiles">
+            <div class="tile">
+              <span class="tile-label">pH</span>
+              <span class="tile-value" id="r-ph"></span>
+              <span class="tile-sub" id="r-ph-sub"></span>
+            </div>
+            <div class="tile">
+              <span class="tile-label" id="r-veq-label">Equivalence volume</span>
+              <span class="tile-value" id="r-veq"></span>
+              <span class="tile-sub" id="r-veq-sub"></span>
+            </div>
+            <div class="tile">
+              <span class="tile-label">Dominant species</span>
+              <span class="tile-value" id="r-dom"></span>
+              <span class="tile-sub" id="r-dom-sub"></span>
+            </div>
+            <div class="tile">
+              <span class="tile-label">Titrant added</span>
+              <span class="tile-value" id="r-added"></span>
+              <span class="tile-sub" id="r-added-sub"></span>
+            </div>
+            <div class="tile">
+              <span class="tile-label" id="r-ion-label"></span>
+              <span class="tile-value" id="r-ion"></span>
+              <span class="tile-sub" id="r-ion-sub"></span>
+            </div>
+            <div class="tile">
+              <span class="tile-label" id="r-ion2-label"></span>
+              <span class="tile-value" id="r-ion2"></span>
+              <span class="tile-sub" id="r-ion2-sub"></span>
+            </div>
           </div>
-          <label class="check"><input type="checkbox" id="ions"><span id="ions-check-text">Show free H₃O⁺ and OH⁻</span></label>
+          <p class="tiles-note">Ideal solutions at 25 °C (activity coefficients of 1, <i>K</i><sub>w</sub> = 1.0 × 10<sup>−14</sup>). Moles are written as 2.50 × 10<sup>−3</sup> mol, which is 2.50 mmol.</p>
         </div>
-        <div class="visual bars-wrap">
-          <canvas id="bars" role="img" aria-label="Bar chart of the moles of each form of the titrand, and of the free hydroxide and hydronium when shown, each bar named at its left with its value at its end. The same numbers are in the Readouts panel and in the table below."></canvas>
-          <div id="bars-tip" class="tooltip" hidden></div>
-        </div>
-        <p class="legend-note" id="bars-note"></p>
-        <details class="table-view">
-          <summary>Show the Species as a Table</summary>
+
+        <div class="tab-panel" role="tabpanel" id="panel-species" aria-labelledby="tab-species" tabindex="0" hidden>
+          <h2 id="species-title" class="visually-hidden">Species in the Flask</h2>
+          <p class="card-sub" id="species-sub"></p>
           <div class="table-scroll">
             <table>
               <caption class="visually-hidden">Moles, fraction of the titrand and molarity of each species at the current point, with the free water ions and the titrant added</caption>
@@ -218,60 +291,32 @@
               <tbody id="species-body"></tbody>
             </table>
           </div>
-        </details>
-      </section>
+        </div>
 
-      <section class="card results" aria-labelledby="results-title">
-        <h2 id="results-title">Readouts</h2>
-        <p id="status" class="verdict" role="status"></p>
-        <div class="tiles">
-          <div class="tile">
-            <span class="tile-label">pH</span>
-            <span class="tile-value" id="r-ph"></span>
-            <span class="tile-sub" id="r-ph-sub"></span>
-          </div>
-          <div class="tile">
-            <span class="tile-label" id="r-veq-label">Equivalence volume</span>
-            <span class="tile-value" id="r-veq"></span>
-            <span class="tile-sub" id="r-veq-sub"></span>
-          </div>
-          <div class="tile">
-            <span class="tile-label">Dominant species</span>
-            <span class="tile-value" id="r-dom"></span>
-            <span class="tile-sub" id="r-dom-sub"></span>
-          </div>
-          <div class="tile">
-            <span class="tile-label">Titrant added</span>
-            <span class="tile-value" id="r-added"></span>
-            <span class="tile-sub" id="r-added-sub"></span>
-          </div>
-          <div class="tile">
-            <span class="tile-label" id="r-ion-label"></span>
-            <span class="tile-value" id="r-ion"></span>
-            <span class="tile-sub" id="r-ion-sub"></span>
-          </div>
-          <div class="tile">
-            <span class="tile-label" id="r-ion2-label"></span>
-            <span class="tile-value" id="r-ion2"></span>
-            <span class="tile-sub" id="r-ion2-sub"></span>
+        <div class="tab-panel" role="tabpanel" id="panel-points" aria-labelledby="tab-points" tabindex="0" hidden>
+          <h2 id="points-title" class="visually-hidden">Key Points</h2>
+          <p class="card-sub">The pH at the start, at each half-equivalence and equivalence volume, past the last equivalence point, and at the current point: the points the curve's guides mark. For each half-equivalence volume the table also gives the step's p<i>K</i>, and the volume at which the curve really reaches that pH. The two volumes agree only where the half-equivalence shortcut, pH = p<i>K</i><sub>a</sub>, holds.</p>
+          <div class="table-scroll">
+            <table>
+              <caption class="visually-hidden">pH at the start, at each half-equivalence and equivalence volume, past the last equivalence point, and at the current point, with each step's pK and the volume at which the curve reaches it</caption>
+              <thead>
+                <tr><th scope="col" class="text">Point</th><th scope="col">Volume added (mL)</th><th scope="col">pH</th><th scope="col" id="kp-pk-head">pKa of the step</th><th scope="col" id="kp-x-head">Curve reaches pH = pKa at (mL)</th></tr>
+              </thead>
+              <tbody id="key-body"></tbody>
+            </table>
           </div>
         </div>
-        <p class="tiles-note">Ideal solutions at 25 °C (activity coefficients of 1, <i>K</i><sub>w</sub> = 1.0 × 10<sup>−14</sup>). Moles are written as 2.50 × 10<sup>−3</sup> mol, which is 2.50 mmol.</p>
-      </section>
-    </div>
 
-    <section class="card notes" aria-labelledby="guide-title">
-      <details>
-        <summary><h2 id="guide-title">Student Guide</h2></summary>
-        <div class="notes-body">
-          <p>This page does the equilibrium arithmetic so you can concentrate on the chemistry. Work through the activities in order; each <b>Load</b> button (and the Activity chips at the top) sets the page up for that activity. Before you move the current point, <em>predict</em> what will happen to the pH and to the bars, then check.</p>
+        <div class="tab-panel notes-body" role="tabpanel" id="panel-guide" aria-labelledby="tab-guide" tabindex="0" hidden>
+          <h2 id="guide-title" class="visually-hidden">Student Guide</h2>
+          <p>This page does the equilibrium arithmetic so you can concentrate on the chemistry. Work through the activities in order; each <b>Load</b> button (and the Activity menu in the toolbar) sets the instrument up for that activity, and Load takes you there. Before you move the current point, <em>predict</em> what will happen to the pH and to the bars, then check.</p>
 
           <h3>What you are looking at</h3>
           <ul>
             <li><b>The curve</b> is pH (0 to 14) against the volume of titrant added, in mL. The titrand starts in the flask; the titrant comes from the burette.</li>
-            <li><b>The current point</b> is where you are in the titration. Drag it along the curve, move the slider, or type a volume.</li>
-            <li><b>The bars</b> show how many moles of each form of the titrand are in the flask at that point, starting form first. Tick <b>Show free H₃O⁺ and OH⁻</b> to add the water ions below a dividing line: these are the amounts <em>actually in solution</em>, not what you have poured in. Before the equivalence point nearly every OH⁻ added has reacted with the titrand, so its bar stays tiny; past equivalence it grows as unreacted titrant piles up. Switch the bar axis to <b>Log</b> to watch that tiny amount change by powers of ten (on a log axis equal steps are equal <em>factors</em>, so a bar twice as long is not twice as much).</li>
-            <li><b>The dashed guides</b> mark each equivalence volume, the dotted guides each half-equivalence volume, and the dash-dot guides the pH that equals the p<i>K</i><sub>a</sub>.</li>
+            <li><b>The current point</b> is where you are in the titration. Drag it along the curve, move the slider under the curve, or type a volume.</li>
+            <li><b>The bars</b>, beside the curve on a wide screen or under it on a narrow one, show how many moles of each form of the titrand are in the flask at that point, starting form first. Tick <b>Show free H₃O⁺ and OH⁻</b> to add the water ions below a dividing line: these are the amounts <em>actually in solution</em>, not what you have poured in. Before the equivalence point nearly every OH⁻ added has reacted with the titrand, so its bar stays tiny; past equivalence it grows as unreacted titrant piles up. Switch the bar axis to <b>Log</b> to watch that tiny amount change by powers of ten (on a log axis equal steps are equal <em>factors</em>, so a bar twice as long is not twice as much).</li>
+            <li><b>The dashed guides</b> mark each equivalence volume. The dotted guides rise from each half-equivalence volume to the curve, and the dash-dot guides run along the pH that equals each p<i>K</i><sub>a</sub> out to where the curve reaches it. Where a dotted and a dash-dot guide meet on the curve, pH = p<i>K</i><sub>a</sub> at half-equivalence; where they reach the curve apart, that shortcut has broken down (Activity 5 shows why).</li>
           </ul>
 
           <div class="act">
@@ -288,7 +333,7 @@
 
           <div class="act">
             <div class="act-head"><h3>Activity 2 · What p<i>K</i><sub>a</sub> controls</h3><button type="button" class="btn small load" data-act="2">Load</button></div>
-            <p>Leave the point at half-equivalence and change only the p<i>K</i><sub>a</sub>: try 3.0, 5.0, 7.0 and 9.0.</p>
+            <p>Leave the point at half-equivalence and change only the p<i>K</i><sub>a</sub> in the toolbar: try 3.0, 5.0, 7.0 and 9.0.</p>
             <ul>
               <li>The whole buffer region slides up and down with p<i>K</i><sub>a</sub>, but the equivalence <em>volume</em> does not move. Why not?</li>
               <li>The starting pH rises and the equivalence pH rises too. A weaker acid has a stronger conjugate base, so its equivalence point is more basic.</li>
@@ -315,7 +360,8 @@
             <div class="act-head"><h3>Activity 5 · A triprotic acid: phosphoric acid</h3><button type="button" class="btn small load" data-act="5">Load</button></div>
             <p>H₃PO₄ has three protons, so there are three equivalence volumes (25, 50 and 75 mL) and the bars show four species. Drag from 0 to 100 mL.</p>
             <ul>
-              <li>Between each pair of equivalence points there is a buffer region, and at each half-way point the pH is close to the matching p<i>K</i><sub>a</sub>.</li>
+              <li>Between each pair of equivalence points there is a buffer region. At 37.5 mL the dotted and dash-dot guides meet on the curve: pH = p<i>K</i><sub>a2</sub> = 7.20, as Henderson–Hasselbalch predicts.</li>
+              <li>At 12.5 and 62.5 mL they do not. At 12.5 mL the pH is 2.29, not 2.15: H₃PO₄ is acidic enough to give protons to water by itself, so the flask holds 58 % H₂PO₄⁻ and 42 % H₃PO₄ rather than half and half, and the curve reaches pH = p<i>K</i><sub>a1</sub> earlier, at 10.0 mL. At 62.5 mL the pH is 11.86, not 12.35: PO₄³⁻ is basic enough to take protons back from water, so the flask holds about three quarters HPO₄²⁻ and one quarter PO₄³⁻, and the curve does not reach pH = p<i>K</i><sub>a3</sub> until 87.7 mL. The shortcut pH = p<i>K</i><sub>a</sub> at half-equivalence assumes the titrand's own reaction with water is small, which fails for a p<i>K</i><sub>a</sub> near 2 or near 12. The Key Points tab gives these numbers for any titration.</li>
               <li>The third jump is missing. p<i>K</i><sub>a3</sub> = 12.35 is so high that HPO₄²⁻ is barely neutralised before the solution is already very basic; the third proton cannot be titrated in water.</li>
               <li>At the first equivalence point (25 mL) the flask is essentially all H₂PO₄⁻, an <em>amphiprotic</em> species. The textbook estimate is pH ≈ ½(p<i>K</i><sub>a1</sub> + p<i>K</i><sub>a2</sub>) = 4.68; the exact answer here is 4.70. Why is the shortcut slightly off? (It assumes the H₂PO₄⁻ concentration is much larger than <i>K</i><sub>a1</sub>; here it is 0.050 M against <i>K</i><sub>a1</sub> = 7 × 10⁻³, not "much larger".)</li>
             </ul>
@@ -328,7 +374,7 @@
 
           <div class="act">
             <div class="act-head"><h3>Activity 7 · When p<i>K</i><sub>a</sub> values are too close</h3><button type="button" class="btn small load" data-act="7">Load</button></div>
-            <p>Citric acid's three p<i>K</i><sub>a</sub> values are only about 1.6 units apart. The three buffer regions merge into one long slope and the intermediate equivalence points disappear, so citric acid titrates like a <em>single</em> triprotic acid with one sharp end point at 75 mL. Look at the bars at 37.5 mL: three species coexist. The rule of thumb is that p<i>K</i><sub>a</sub> values need to be about 3 units apart to give separate steps. Notice too that the dash-dot "pH = p<i>K</i><sub>a</sub>" guides no longer meet the curve: the half-equivalence shortcut only works when the steps are well separated.</p>
+            <p>Citric acid's three p<i>K</i><sub>a</sub> values are only about 1.6 units apart. The three buffer regions merge into one long slope and the intermediate equivalence points disappear, so citric acid titrates like a <em>single</em> triprotic acid with one sharp end point at 75 mL. Look at the bars at 25 mL, the first equivalence volume: instead of nearly pure H₂A⁻, the flask holds about three quarters H₂A⁻ with 12 % each of H₃A and HA²⁻, three species at once, so there is no jump there. The rule of thumb is that p<i>K</i><sub>a</sub> values need to be about 3 units apart to give separate steps. Notice that the dotted and dash-dot guides still meet on the curve: at each half-equivalence volume the overlaps on either side balance, so pH = p<i>K</i><sub>a</sub> still holds. What the overlap removes is the jumps between the steps.</p>
           </div>
 
           <h3>Questions to take away</h3>
@@ -339,39 +385,46 @@
             <li>In Activity 5, by 50 mL you have poured in 5.0 × 10⁻³ mol of OH⁻, yet the OH⁻ bar shows only a few micromoles. Where did the rest of the hydroxide go? Use the species bars to account for it.</li>
           </ol>
         </div>
-      </details>
-    </section>
 
-    <section class="card notes" aria-labelledby="notes-title">
-      <details>
-        <summary><h2 id="notes-title">About the Model</h2></summary>
-        <div class="notes-body">
+        <div class="tab-panel notes-body" role="tabpanel" id="panel-about" aria-labelledby="tab-about" tabindex="0" hidden>
+          <h2 id="notes-title" class="visually-hidden">About the Model</h2>
+          <p class="about-lede">A weak acid or weak base in the flask, a strong base or strong acid in the burette. Set the conditions, move along the curve, and watch the species in the flask trade places as the titrant goes in.</p>
+          <h3>Using the page</h3>
+          <p>Choose the titrand, the number of proton sites and an example in the toolbar, or type the p<i>K</i> values. Then move along the curve: drag or click on it, use the slider under it, or type a volume in the box beside the slider. Settings holds the concentrations, the titrand's volume and a slider for each p<i>K</i>. The Activity menu sets everything up for an activity in the Student Guide. See the results opens this page, which follows the instrument; Back to the instrument, or the browser's Back button, returns to it.</p>
+
           <h3>How the pH is calculated</h3>
           <p>No approximations and no region-by-region formulas. For an acid H<sub>n</sub>A with acidity constants <i>K</i><sub>a1</sub> … <i>K</i><sub>an</sub>, the fraction of the titrand that has lost <i>j</i> protons is</p>
           <p class="math">α<sub>j</sub> = [H⁺]<sup>n−j</sup> · K<sub>a1</sub> ··· K<sub>aj</sub> / D,&nbsp;&nbsp; D = Σ<sub>k = 0 … n</sub> [H⁺]<sup>n−k</sup> · K<sub>a1</sub> ··· K<sub>ak</sub></p>
           <p>and the solution must be electrically neutral. With everything diluted into the total volume, that single condition is</p>
           <p class="math">[Na⁺] + [H⁺] + C<sub>A</sub> · Σ<sub>j</sub> (z₀ − j) · α<sub>j</sub> − K<sub>w</sub> / [H⁺] − [Cl⁻] = 0</p>
           <p>where z₀ is the charge of the fully protonated form (0 for H<sub>n</sub>A, +n for a base such as NH₃ or CO₃²⁻ once it has taken up all n protons), [Na⁺] is what the strong-base titrant delivers and [Cl⁻] what the strong-acid titrant delivers. The left-hand side increases steadily with [H⁺], so the page finds the one [H⁺] that makes it zero by repeatedly halving an interval (a bisection search in log [H⁺]), then reports pH = −log [H⁺] and the α<sub>j</sub> at that point.</p>
+          <h3>The guides</h3>
+          <p>The dashed lines mark the equivalence volumes, V<sub>1</sub> = C<sub>A</sub>V<sub>A</sub> / C<sub>T</sub> and its multiples. The dotted line at each half-equivalence volume rises to the curve, and the dash-dot line at each p<i>K</i><sub>a</sub> (14 − p<i>K</i><sub>b</sub> for a base) runs from the pH axis to where the curve reaches that pH, or across the whole chart if it does not within the range shown. Henderson–Hasselbalch with the amounts added predicts pH = p<i>K</i><sub>a</sub> at half-equivalence. The two guides show where that holds (they meet on the curve) and where the titrand's own reaction with water moves the curve away from it (they reach the curve apart). The Key Points table gives the numbers.</p>
           <h3>Weak bases</h3>
           <p>A weak base is the same system started from the fully deprotonated end. The p<i>K</i><sub>b</sub> values you enter (first protonation first) are converted with p<i>K</i><sub>a</sub> + p<i>K</i><sub>b</sub> = 14.00, so ammonia (p<i>K</i><sub>b</sub> 4.75) runs as the ammonium ion system with p<i>K</i><sub>a</sub> 9.25, and the carbonate ion (p<i>K</i><sub>b</sub> 3.67, 7.65) as carbonic acid with p<i>K</i><sub>a</sub> 6.35 and 10.33.</p>
           <h3>What the bars show</h3>
-          <p>Each form of the titrand is its fraction α<sub>j</sub> times the starting moles. The free H₃O⁺ and OH⁻ are [H₃O⁺] × V and [OH⁻] × V from the same solution, with [H₃O⁺][OH⁻] = <i>K</i><sub>w</sub>, so as one grows the other shrinks. The species table also lists the total titrant added and how much of it lies beyond the final equivalence point.</p>
+          <p>Each form of the titrand is its fraction α<sub>j</sub> times the starting moles. The free H₃O⁺ and OH⁻ are [H₃O⁺] × V and [OH⁻] × V from the same solution, with [H₃O⁺][OH⁻] = <i>K</i><sub>w</sub>, so as one grows the other shrinks. The Species in the Flask table also lists the total titrant added and how much of it lies beyond the final equivalence point.</p>
           <h3>Assumptions</h3>
           <p>Ideal solutions at 25 °C: activity coefficients of 1 and <i>K</i><sub>w</sub> = 1.0 × 10<sup>−14</sup>. Example p<i>K</i> values are literature values at 25 °C and zero ionic strength. Volumes add. Concentrations below about 10⁻⁴ M are allowed but the curves there are dominated by water's own ions.</p>
+          <h3>Keyboard</h3>
+          <p>Tab moves between controls; arrow keys move the sliders and, on the row of tabs, between the tabs. Instrument and Results at the top switch between the two pages. The p<i>K</i>, concentration, volume and titrant boxes take an exact value (Enter applies it, Escape abandons the edit). The titrant slider announces the volume and the pH as it moves, and every value is in the tables. Escape closes Settings or a tooltip. Alt + Shift + P (Option + Shift + P on a Mac) switches presentation mode on and off, and Escape leaves it.</p>
         </div>
-      </details>
-    </section>
+      </div>
+    </div>
   </main>
 
   <footer class="site-footer">
-    <p>Titration Curve Explorer: an exact charge-balance model of a weak acid or weak base titrated with a strong titrant, up to three proton sites, with the species in the flask at any point. Part of <a href="https://analyticalchem.github.io/">analyticalchem · All projects</a>. <a href="https://github.com/analyticalchem/weaktitration" aria-label="Titration Curve Explorer source code on GitHub">Source</a>.</p>
+    <p>Titration Curve Explorer, an exact charge-balance model at 25 °C (<i>K</i><sub>w</sub> = 1.0 × 10<sup>−14</sup>) · <a href="https://github.com/analyticalchem/weaktitration">Source code on GitHub</a> · Part of analyticalchem · <a href="https://analyticalchem.github.io/">All projects</a></p>
   </footer>
+
+  <p id="load-status" class="visually-hidden" role="status"></p>
   <p id="present-status" class="visually-hidden" role="status"></p>
 
-  <script src="js/model.js"></script>
-  <script src="js/page.js"></script>
-  <script src="js/chart.js"></script>
-  <script src="js/bars.js"></script>
-  <script src="js/main.js"></script>
+  <script src="js/model.js?v=20261020-1"></script>
+  <script src="js/page.js?v=20261020-1"></script>
+  <script src="js/chart.js?v=20261020-1"></script>
+  <script src="js/bars.js?v=20261020-1"></script>
+  <script src="js/main.js?v=20261020-1"></script>
+  <script src="js/layout.js?v=20261020-1"></script>
 </body>
 </html>

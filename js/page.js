@@ -124,9 +124,14 @@ var VALUE_RE = /^([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)([pnuµμmkKMG]??)(?
    */
   function numberField(range, field, o) {
     var f = { range: range, field: field, o: o, msg: document.getElementById(field.getAttribute('aria-describedby') || '') };
+    // data-dirty marks an unfinished edit, so other Escape handlers (Settings) leave that Escape to the box.
+    function setDirty(on) {
+      f.dirty = on;
+      if (on) field.dataset.dirty = '1'; else delete field.dataset.dirty;
+    }
     function show() {
       if (f.dirty) return;
-      field.value = o.format(o.read ? o.read() : o.toReal(+range.value));
+      field.value = field.disabled ? '' : o.format(o.read ? o.read() : o.toReal(+range.value));
     }
     function say(text) {
       if (f.msg && f.msg.textContent !== text) f.msg.textContent = text;
@@ -141,7 +146,7 @@ var VALUE_RE = /^([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)([pnuµμmkKMG]??)(?
         return;
       }
       var c = Math.max(o.min, Math.min(o.max, v));
-      f.dirty = false;
+      setDirty(false);
       if (o.commit) {
         o.commit(c);
       } else {
@@ -153,13 +158,13 @@ var VALUE_RE = /^([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)([pnuµμmkKMG]??)(?
       say('');
       if (c !== v && f.msg) f.msg.textContent = 'Set to ' + o.format(c) + (o.unit ? ' ' + o.unit : '') + ', the ' + (v > c ? 'largest' : 'smallest') + ' allowed.';
     }
-    field.addEventListener('input', function () { f.dirty = true; });
+    field.addEventListener('input', function () { setDirty(true); });
     field.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); commit(); }
       else if (e.key === 'Escape' && f.dirty) {
         // The first Escape abandons the edit; it does not leave presentation mode.
         e.stopPropagation();
-        f.dirty = false;
+        setDirty(false);
         say('');
         show();
       }

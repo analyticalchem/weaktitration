@@ -9,7 +9,6 @@
   var canvas, ctx, tip, wrap, W = 0, H = 0, dpr = 1, tok = {};
   var sys = null, params = null, st = null, pts = [], geom = null, hoverV = null, dragging = false, onPick = null;
   var cache = { key: '', pts: [] };
-  var SUB = ['', '₁', '₂', '₃'];
 
   function cssVar(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -60,11 +59,15 @@
     var V1 = root.Model.eqVolume1(p);
     var Vmax = Math.max(isFinite(V1) ? V1 * (s.n + 1) : 1, state.Vt * 1.08, 0.5);
     var key = [s.mode, s.n, s.pKa.join(','), p.Ca, p.Va, p.Ct, Vmax].join('|');
-    if (cache.key !== key) cache = { key: key, pts: root.Model.curve(s, p, Vmax) };
+    if (cache.key !== key) cache = { key: key, pts: root.Model.curve(s, p, Vmax), steps: root.Model.steps(s, p, Vmax) };
     pts = cache.pts;
     geom = { Vmax: Vmax };
     draw();
   }
+
+  /** The guides' positions for the drawn range (Model.steps), and that range's end, for the Key Points table. */
+  function steps() { return cache.steps || []; }
+  function lastVolume() { return geom ? geom.Vmax : 0; }
 
   function niceStep(span, target) {
     var raw = span / target, mag = Math.pow(10, Math.floor(Math.log10(raw))), r = raw / mag;
@@ -89,16 +92,66 @@
     ctx.fillText(text, x, y);
   }
 
+  /**
+   * A left-aligned guide label with a real subscript ("V" + "eq"), at the chart font with the subscript
+   * at the small chart font, so it never shrinks below the drawn-text minimum the way Unicode subscript
+   * characters do (there is no subscript q at all).
+   */
+  function haloSub(base, sub, x, y) {
+    ctx.textAlign = 'left';
+    ctx.font = tok.font + 'px ' + tok.family;
+    haloText(base, x, y);
+    var w = ctx.measureText(base).width;
+    ctx.font = tok.fontSmall + 'px ' + tok.family;
+    haloText(sub, x + w + 1, y + Math.round(tok.font * 0.3));
+    w += 1 + ctx.measureText(sub).width;
+    ctx.font = tok.font + 'px ' + tok.family;
+    // The label's box, so the current point's label can keep clear of it.
+    var top = ctx.textBaseline === 'top' ? y : y - tok.font;
+    taken.push({ x: x, y: top, w: w, h: tok.font * 1.4 });
+  }
+
+  /** The width haloSub would draw. */
+  function subWidth(base, sub) {
+    ctx.font = tok.font + 'px ' + tok.family;
+    var w = ctx.measureText(base).width + 1;
+    ctx.font = tok.fontSmall + 'px ' + tok.family;
+    w += ctx.measureText(sub).width;
+    ctx.font = tok.font + 'px ' + tok.family;
+    return w;
+  }
+
+  // Boxes of the labels drawn so far; a label placed later takes the first place that overlaps none.
+  var taken = [];
+  function overlapArea(x, y, w, h) {
+    var a = 0;
+    for (var i = 0; i < taken.length; i++) {
+      var b = taken[i];
+      a += Math.max(0, Math.min(x + w, b.x + b.w) - Math.max(x, b.x)) * Math.max(0, Math.min(y + h, b.y + b.h) - Math.max(y, b.y));
+    }
+    return a;
+  }
+  /** Of the candidate boxes {x, y}, the first that overlaps nothing, else the one that overlaps least. */
+  function place(spots, w, h) {
+    var best = null, bestA = Infinity;
+    for (var i = 0; i < spots.length; i++) {
+      var a = overlapArea(spots[i].x, spots[i].y, w, h);
+      if (a === 0) return spots[i];
+      if (a < bestA) { bestA = a; best = spots[i]; }
+    }
+    return best;
+  }
+
   function draw() {
     if (!ctx || !st) return;
     if (!W && !layout()) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = tok.surface;
     ctx.fillRect(0, 0, W, H);
+    taken = [];
 
     var L = 50, R = W < 420 ? 36 : 46, T = 34, B = 42;
     var x0 = L, x1 = W - R, y0 = T, y1 = H - B, Vmax = geom.Vmax, n = sys.n;
-    var V1 = root.Model.eqVolume1(params);
     geom.x0 = x0; geom.x1 = x1; geom.y0 = y0; geom.y1 = y1;
     function X(V) { return x0 + (V / Vmax) * (x1 - x0); }
     function Y(pH) { return y1 - (Math.min(14, Math.max(0, pH)) / 14) * (y1 - y0); }
@@ -143,39 +196,52 @@
     ctx.restore();
 
     // Guides: equivalence volumes (dashed), half-equivalence volumes (dotted), pH = pKa levels (dash-dot).
-    if (isFinite(V1) && V1 > 0) {
+    // The dotted line rises from each half-equivalence volume to the curve, and the dash-dot line runs from
+    // the pH axis to where the curve really reaches pH = pKa (across the whole chart if it never does), so
+    // both always end on the curve. Where the half-equivalence shortcut holds they meet there at one
+    // point; where it fails (a pKa near 2 or 12, or steps that overlap) they reach the curve apart.
+    var guides = cache.steps || [];
+    if (guides.length) {
       ctx.strokeStyle = tok.text2;
       ctx.lineWidth = 1;
-      for (k = 1; k <= n; k++) {
-        var Vk = k * V1, Vh = (k - 0.5) * V1;
-        var pKh = sys.mode === 'acid' ? sys.pKa[k - 1] : sys.pKa[n - k];
-        if (Vk <= Vmax) {
+      guides.forEach(function (g) {
+        if (g.Vk <= Vmax) {
           ctx.setLineDash([7, 5]);
-          ctx.beginPath(); ctx.moveTo(X(Vk), y0); ctx.lineTo(X(Vk), y1); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(X(g.Vk), y0); ctx.lineTo(X(g.Vk), y1); ctx.stroke();
         }
-        if (Vh <= Vmax) {
+        if (g.Vh <= Vmax) {
           ctx.setLineDash([2, 4]);
-          ctx.beginPath(); ctx.moveTo(X(Vh), Y(pKh)); ctx.lineTo(X(Vh), y1); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(X(g.Vh), Y(g.pHh)); ctx.lineTo(X(g.Vh), y1); ctx.stroke();
           ctx.setLineDash([10, 4, 2, 4]);
-          ctx.beginPath(); ctx.moveTo(x0, Y(pKh)); ctx.lineTo(X(Vh), Y(pKh)); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(x0, Y(g.pK)); ctx.lineTo(g.Vx === null ? x1 : X(g.Vx), Y(g.pK)); ctx.stroke();
         }
-      }
+      });
       ctx.setLineDash([]);
-      // Labels parked at the ends of their guides, away from the curve.
-      ctx.font = tok.fontSmall + 'px ' + tok.family;
+      // Labels parked at the ends of their guides, away from the curve: the volume guides' labels at the
+      // top and bottom, then each pH = pKa level's label at the left, above its line or, where that place
+      // is taken, below it.
       ctx.fillStyle = tok.text2;
-      ctx.textAlign = 'left';
-      for (k = 1; k <= n; k++) {
-        var Vk2 = k * V1, Vh2 = (k - 0.5) * V1;
-        var pKh2 = sys.mode === 'acid' ? sys.pKa[k - 1] : sys.pKa[n - k];
+      var drop = Math.round(tok.font * 0.3), gh = tok.font * 1.4;
+      guides.forEach(function (g) {
         ctx.textBaseline = 'top';
-        if (Vk2 <= Vmax) haloText(n === 1 ? 'Vₑq' : 'V' + SUB[k], X(Vk2) + 5, y0 + 2);
+        if (g.Vk <= Vmax) haloSub('V', n === 1 ? 'eq' : String(g.k), X(g.Vk) + 5, y0 + 2);
         ctx.textBaseline = 'bottom';
-        if (Vh2 <= Vmax) haloText(n === 1 ? '½Vₑq' : (k === 1 ? '½' : (k - 1) + '½') + 'V₁', X(Vh2) + 5, y1 - 5);
-        if (pKh2 >= 0.5 && pKh2 <= 13.5) {
-          var lbl = sys.mode === 'acid' ? (n === 1 ? 'pH = pKa' : 'pKa' + SUB[k]) : (n === 1 ? '14 − pKb' : '14 − pKb' + SUB[k]);
-          haloText(lbl, x0 + 6, Y(pKh2) - 3);
-        }
+        if (g.Vh <= Vmax) haloSub((g.k === 1 ? '' : (g.k - 1)) + '½V', n === 1 ? 'eq' : '1', X(g.Vh) + 5, y1 - 5 - drop);
+      });
+      for (k = 1; k <= guides.length; k++) {
+        var pKh2 = guides[k - 1].pK;
+        if (pKh2 < 0.5 || pKh2 > 13.5) continue;
+        // For a base the k-th step from the start is its k-th protonation, pH = 14 − pKb(k).
+        var base = sys.mode === 'acid' ? (n === 1 ? 'pH = pK' : 'pK') : '14 − pK';
+        var sub = (sys.mode === 'acid' ? 'a' : 'b') + (n === 1 ? '' : String(k));
+        var lw2 = subWidth(base, sub), ly0 = Y(pKh2);
+        // Box tops: just above the line, just below it, then a little further out each way; at the left
+        // end of the line first, then one label's width along it, where pK values close together crowd.
+        var tops = [ly0 - 3 - drop - tok.font, ly0 + 3, ly0 - 3 - drop - tok.font - gh / 2, ly0 + 3 + gh / 2], spotsK = [];
+        [x0 + 6, x0 + 16 + lw2].forEach(function (lx) { tops.forEach(function (t) { spotsK.push({ x: lx, y: t }); }); });
+        var at = place(spotsK, lw2, gh);
+        ctx.textBaseline = 'top';
+        haloSub(base, sub, at.x, at.y);
       }
     }
 
@@ -217,10 +283,28 @@
       ctx.font = '600 ' + tok.font + 'px ' + tok.family;
       ctx.fillStyle = tok.text;
       ctx.textBaseline = 'middle';
-      var right = cx > (x0 + x1) / 2;
-      ctx.textAlign = right ? 'right' : 'left';
-      var ly = Math.min(y1 - 22, Math.max(y0 + 22, cy - tok.marker - 10));
-      haloText('pH ' + st.pH.toFixed(2), cx + (right ? -(tok.marker + 7) : tok.marker + 7), ly);
+      // Just above the point on the side towards the middle, else just below it, then a line further out
+      // each way, then the other side: the first place no guide's label already holds.
+      var label = 'pH ' + st.pH.toFixed(2), lw = ctx.measureText(label).width, lh = tok.font + 4;
+      var inward = cx > (x0 + x1) / 2 ? -1 : 1, spots = [], best;
+      var up = cy - tok.marker - 10, down = cy + tok.marker + 12;
+      [inward, -inward].forEach(function (side) {
+        [up, down, up - lh, down + lh, up - 2 * lh, down + 2 * lh, up - 3 * lh].forEach(function (y) {
+          var bx = side > 0 ? cx + tok.marker + 7 : cx - tok.marker - 7 - lw;
+          if (bx < x0 + 2 || bx + lw > x1 - 2) return;
+          spots.push({ x: bx, y: Math.min(y1 - 22, Math.max(y0 + 22, y)) - lh / 2 });
+        });
+      });
+      // Near the start, the pK labels stand in a column at the left edge: try just to its right too.
+      var col = x0;
+      taken.forEach(function (b) { if (b.x <= x0 + 6) col = Math.max(col, b.x + b.w); });
+      if (col + 8 + lw <= x1 - 2 && col + 8 > cx) {
+        [up, down, up - lh, down + lh].forEach(function (y) { spots.push({ x: col + 8, y: Math.min(y1 - 22, Math.max(y0 + 22, y)) - lh / 2 }); });
+      }
+      best = place(spots, lw, lh) || { x: cx + tok.marker + 7, y: cy - tok.marker - 10 - lh / 2 };
+      ctx.textAlign = 'left';
+      haloText(label, best.x, best.y + lh / 2);
+      taken.push({ x: best.x, y: best.y, w: lw, h: lh, point: true });
     }
   }
 
@@ -279,5 +363,9 @@
     return true;
   }
 
-  root.Chart = { init: init, refresh: refresh, layout: layout, set: set, draw: draw, closeTip: closeTip };
+  root.Chart = {
+    init: init, refresh: refresh, layout: layout, set: set, draw: draw, closeTip: closeTip,
+    steps: steps, lastVolume: lastVolume,
+    labels: function () { return taken.slice(); }    // the drawn labels' boxes, for console checks
+  };
 })(window);

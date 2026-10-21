@@ -9,18 +9,38 @@ https://analyticalchem.github.io/weaktitration/ (GitHub Pages, from the default 
 
 ## What it shows
 
+The page uses the analyticalchem instrument layout: two pages in one document, chosen by the address
+(`#instrument`, `#results`), so Back, Forward and reload all work.
+
+**The instrument page** is one card that fills the window on a large enough screen (1100 × 680, or
+1280 × 720 when presenting; below that it stacks and scrolls):
+
+- **Toolbar**: the titrand (weak acid or weak base), the number of proton sites, an Example menu of
+  literature values and a typing box for each pK, then the Activity menu, a status line naming the
+  region of the curve, a Settings drop-down (concentrations, the titrand's volume and a slider for each
+  pK) and See the results.
 - **Titration curve**: pH (0 to 14) against the volume of titrant added. Click or drag on the curve,
-  move the slider, or type a volume to set the current point. Dashed guides mark each equivalence
-  volume, dotted guides each half-equivalence volume, and dash-dot guides the pH = pK<sub>a</sub> levels.
+  move the slider right under it, or type a volume to set the current point. Dashed guides mark each
+  equivalence volume. Dotted guides rise from each half-equivalence volume to the curve, and dash-dot
+  guides run along each pH = pK<sub>a</sub> level out to where the curve reaches it, so both end on the
+  curve: they meet where the half-equivalence shortcut holds and reach the curve apart where it fails
+  (phosphoric acid's first and third steps, for example).
 - **Species in the flask**: moles of every form of the titrand (from the exact equilibrium fractions)
-  and, when shown, the free OH⁻ and H₃O⁺ actually in solution, n = [ion] × V. A Linear / Log toggle on
-  the bar axis makes the very small amounts visible.
+  and, when shown, the free OH⁻ and H₃O⁺ actually in solution, n = [ion] × V. On a wide landscape
+  window the panel sits beside the curve with the bars standing up and filling its height; on a narrow
+  or portrait one it sits under the curve with the bars lying down. A Linear / Log toggle on the bar
+  axis makes the very small amounts visible.
+
+**The results page** has one tab per result, each following the instrument as it changes:
+
 - **Readouts**: pH and [H₃O⁺], every equivalence volume with its pH, the dominant species, the titrant
-  added, and both water ions, with a status line naming the region of the curve.
-- **Tables**: the curve's key points and the species at the current point, including the total
-  titrant added and how much lies beyond the final equivalence point.
-- **Student guide**: seven activities with Load buttons (also as chips in the controls), take-away
-  questions, and an About the Model panel with the calculation.
+  added, and both water ions.
+- **Species in the Flask** and **Key Points**: the species at the current point, including the total
+  titrant added and how much lies beyond the final equivalence point, and the pH at the curve's key
+  points, with each step's pK and the volume at which the curve really reaches it.
+- **Student Guide**: seven activities with Load buttons (also in the Activity menu), and take-away
+  questions.
+- **About**: using the page, the calculation, and the keyboard.
 
 ## Modes
 
@@ -55,22 +75,32 @@ pK<sub>a</sub> = 14.00 − pK<sub>b</sub>. Activity coefficients are 1 and K<sub
 
 ```
 index.html        page structure and text, including the student guide
-css/styles.css    tokens, layout, components, themes, presentation mode
+css/styles.css    house tokens, components, themes, presentation mode
+css/page.css      this page's layout: toolbar and Settings, the species panel, results tabs, one screen
 js/model.js       the chemistry (pure functions, no DOM)
 js/page.js        page chrome: theme button, presentation mode, typing boxes
 js/chart.js       the titration curve (canvas)
 js/bars.js        the species bars (canvas)
 js/main.js        wiring: controls, readouts, tables
+js/layout.js      the two pages, one screen, the Settings drop-down and the tabs
 old/              the earlier single-file version, kept for reference
 ```
+
+## Releases
+
+Every stylesheet and script link in `index.html` ends in the same `?v=YYYYMMDD-n` tag. With every
+release that changes a CSS or JS file, change all of them to a new value in the same commit, so
+browsers fetch the new files instead of reusing cached ones (GitHub Pages lets them cache for up to
+10 minutes).
 
 ## Accessibility and presentation
 
 The page follows the analyticalchem house format and WCAG 2.1 AA: landmarks and headings, a skip link,
-visible focus rings, native controls with labels, every drawn number also in text (readouts and
-tables), tooltips that Escape dismisses, light and dark themes, and reflow to one column at 320 px.
-The **Present** button (or Alt + Shift + P, or `?present=1` in the address) enlarges text, controls
-and charts for a projector; Escape exits.
+visible focus rings, native controls with labels, every drawn number also in text (the visuals'
+labels, the readouts and the tables), tooltips that Escape dismisses, light and dark themes, and
+reflow to one column at 320 px. The titrant slider announces the volume and the pH as it moves. The
+**Present** button (or Alt + Shift + P, or `?present=1` in the address) enlarges text, controls and
+charts for a projector; Escape closes Settings or a tooltip first, then exits.
 
 ## Licence
 
